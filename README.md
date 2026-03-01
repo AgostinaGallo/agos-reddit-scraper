@@ -1,144 +1,133 @@
 # Reddit Comment Scraper
 
-A zero-dependency CLI tool that scrapes top-level comments from Reddit posts and exports them as **AI-ready sorted JSON**.
+Scrape top-level Reddit comments and export them as **AI-ready JSON**. Comes in two flavours:
 
-No API keys. No `pip install`. Just Python and go.
+| | CLI tool | Telegram bot |
+|---|---|---|
+| File | `scrape.py` | `bot.py` |
+| Dependencies | None (stdlib only) | `python-telegram-bot` |
+| Input | URLs you provide | Any research topic — bot finds the posts |
+| Output | JSON file on disk | JSON file sent to you on Telegram |
 
 ## Requirements
 
-- **Python 3.8+** (that's it — no packages, no virtual env, only the standard library)
+- **Python 3.8+**
 - Python comes pre-installed on **macOS** and **Linux**
-- Windows: install from [python.org](https://www.python.org/downloads/) or run `winget install Python.Python.3`
+- Windows: [python.org](https://www.python.org/downloads/) or `winget install Python.Python.3`
 
-## Quick Start
+---
+
+## Option A: CLI Tool (`scrape.py`)
+
+Zero dependencies. You provide Reddit URLs, it scrapes comments.
 
 ```bash
 python scrape.py
 ```
 
-The interactive mode will:
-
-1. Ask you to **paste Reddit post URLs** — in any format. Type `done` when finished.
-2. Ask for a **minimum comment score** (Reddit upvote count). Use `0` for everything.
-3. Ask for a **research topic** (optional) — gets embedded so AI tools know what you're looking for.
-
-Results are saved to `results/`.
-
-## Usage
+### CLI Flags
 
 ```bash
-# Interactive (prompts for everything)
-python scrape.py
-
-# Pass URLs inline
-python scrape.py --urls "URL1 URL2 URL3"
-
-# Load URLs from a text file
-python scrape.py --file my_urls.txt
-
-# Use hardcoded URLs (edit HARDCODED_URLS in the script)
-python scrape.py --hardcoded
-
-# Set everything via flags (no prompts)
-python scrape.py --file urls.txt --min-score 5 --topic "Best food in Paris"
-
-# Custom output filename
-python scrape.py --output paris_tips.json
-
-# Skip AI instructions in output
-python scrape.py --file urls.txt --no-ai
-
-# Show all options
-python scrape.py --help
+python scrape.py --urls "URL1 URL2"         # Pass URLs inline
+python scrape.py --file urls.txt             # Load URLs from a file
+python scrape.py --hardcoded                 # Use HARDCODED_URLS in the script
+python scrape.py --min-score 5               # Filter by minimum upvotes
+python scrape.py --topic "Best food in Rome" # Embed research context for AI
+python scrape.py --no-ai                     # Omit AI instructions from output
+python scrape.py --output myfile.json        # Custom output filename
+python scrape.py --help                      # All options
 ```
 
-### Shortcuts
+---
+
+## Option B: Telegram Bot (`bot.py`)
+
+Send a research topic, pick threads interactively, get a JSON file back.
+
+### Setup
 
 ```bash
-# macOS / Linux (one-time setup: chmod +x scrape.py)
-./scrape.py
+# 1. Install the one dependency
+pip install -r requirements.txt
 
-# Windows CMD
-scrape
+# 2. Create .env with your Telegram bot token
+echo TELEGRAM_TOKEN=your_token_here > .env
+
+# 3. Run
+python bot.py
 ```
+
+To get a token, talk to [@BotFather](https://t.me/BotFather) on Telegram and create a new bot.
+
+### How it works
+
+1. Send any message like **"Best headphones under $200"**
+2. The bot searches Reddit globally (sorted by relevance, last year)
+3. You see the top 5 results with subreddit, title, comment count, and score
+4. Tap to select/deselect posts, then hit **Analyse**
+5. The bot scrapes all top-level comments and sends you the JSON file
+
+### Bot commands
+
+| Command | Description |
+|---|---|
+| `/start` | Welcome message |
+| `/help` | Usage instructions |
+| `/minscore 5` | Set minimum comment score (default: 2) |
+| Any text | Treated as a research topic |
+
+### AI integration (ready to plug in)
+
+`bot.py` has a function called `analyze_with_ai(data)` that receives the full JSON output and uses Groq (Llama 3.3 70b) to send the AI summary alongside the file.
+
+---
 
 ## Output Format
 
-Results are saved as JSON with three sections:
+Both tools produce the same JSON structure:
 
 ```json
 {
     "ai_instructions": {
         "what_is_this": "This JSON contains 142 top-level Reddit comments...",
-        "score_meaning": "The 'score' field is the net upvote count...",
-        "research_topic": "Best restaurants in Paris",
-        "analysis_guidance": [
-            "The user is researching: \"Best restaurants in Paris\"...",
-            "Look for recurring themes across multiple comments.",
-            "Weight information by score — higher = community consensus.",
-            "..."
-        ],
-        "source_posts": [
-            "r/ParisTravelGuide: Real hidden gems in Paris",
-            "r/travel: 2 days in Paris — what are your suggestions?"
-        ]
+        "score_meaning": "Higher score = more community agreement...",
+        "research_topic": "Best headphones under $200",
+        "analysis_guidance": ["..."],
+        "source_posts": ["r/headphones: Best headphones...", "..."]
     },
     "meta": {
         "scraped_at": "2025-12-14 22:30:00 UTC",
-        "min_score": 1,
+        "min_score": 2,
         "total_posts": 5,
         "total_comments": 142,
-        "errors": 0,
-        "sources": [ { "url": "...", "subreddit": "...", "title": "..." } ]
+        "sources": [{ "url": "...", "subreddit": "...", "title": "..." }]
     },
     "comments": [
-        { "score": 485, "subreddit": "travel", "post_id": "abc123", "body": "..." }
+        { "score": 485, "subreddit": "headphones", "post_id": "abc123", "body": "..." }
     ]
 }
 ```
 
-### Why `ai_instructions`?
+The `ai_instructions` block tells any AI tool what the data is, what scores mean, and how to analyse it. Feed the file directly to ChatGPT, Claude, or Gemini.
 
-When you feed this file to ChatGPT, Claude, Gemini, or any LLM, the embedded instructions tell it:
-- What the data is and where it came from
-- What the score means (community upvotes — not a quality grade)
-- How to best analyse it (weight by score, spot consensus, note biases)
-- What you're researching (if you provided a `--topic`)
+## URL Input Flexibility (CLI)
 
-Use `--no-ai` to omit this block if you don't need it.
-
-### Filename convention
-
-| Scenario | Example |
-|---|---|
-| Single post | `comments_20251214_travel_abc123.json` |
-| Same subreddit | `comments_20251214_ItalyTravel.json` |
-| Mixed subreddits | `comments_20251214_travel_mixed.json` |
-| Custom | Whatever you pass with `--output` |
-
-## URL Input Flexibility
-
-The parser handles virtually any format:
+The CLI parser handles any format:
 
 ```
-# All of these work:
 https://www.reddit.com/r/travel/comments/abc123/my_post/
-https://reddit.com/r/travel/comments/abc123/my_post
-
-# Any separator — or none at all:
 url1, url2, url3
 url1 url2 url3
 url1;url2;url3
-
-# Paste a messy block — it finds the Reddit URLs automatically
+# Paste a messy block — it finds the Reddit URLs
 ```
 
 ## Tips
 
-- Reddit rate-limits unauthenticated requests. The tool adds a ~1.2 s delay between posts and auto-retries on HTTP 429.
-- Set `--min-score 0` to get **all** comments regardless of votes.
-- Results go into `results/` (auto-created, git-ignored).
-- Feed the output JSON directly to any AI for analysis — the embedded instructions handle the rest.
+- Reddit rate-limits unauthenticated requests. Both tools add delays and auto-retry on 429.
+- The bot uses a real Chrome User-Agent to avoid blocks.
+- Set min-score to `0` to get **all** comments regardless of votes.
+- Junk subreddits (memes, shitposting, etc.) are auto-filtered from bot search results.
 
 ## License
 
