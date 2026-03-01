@@ -1,0 +1,25 @@
+# Result files
+results/
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# IDE / Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Python
+__pycache__/
+*.pyc
+
+# Environment / secrets
+.env
+
+# Unrelated / legacy files
+survival_sqs_laravel.md
+reddit_comments_result_*.json
